@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PKキッカー 紹介ページ</title>
+<style>
+  :root{ --green:#2e7d32; --green-d:#1b5e20; --ink:#1f2933; --blue:#0277bd; }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:#e8f1ea; color:var(--ink); line-height:1.8;
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif;
+  }
+  header{
+    background:linear-gradient(135deg,var(--green-d),var(--green)); color:#fff;
+    text-align:center; padding:56px 16px 48px;
+  }
+  header h1{margin:0 0 8px; font-size:44px; letter-spacing:.06em}
+  header p{margin:0 0 28px; font-size:18px; opacity:.95}
+  .btn{
+    display:inline-block; font-size:22px; font-weight:bold; text-decoration:none;
+    color:var(--green-d); background:#ffb300; border-radius:999px; padding:14px 56px;
+    box-shadow:0 4px 0 #c68400; transition:transform .05s, box-shadow .05s;
+  }
+  .btn:hover{background:#ffc233}
+  .btn:active{transform:translateY(3px); box-shadow:0 1px 0 #c68400}
+  main{max-width:820px; margin:0 auto; padding:24px 16px 48px}
+  section{
+    background:#fff; border-radius:16px; padding:24px 28px; margin-bottom:20px;
+    box-shadow:0 4px 16px rgba(0,0,0,.1);
+  }
+  h2{margin:0 0 12px; font-size:24px; color:var(--green-d); border-left:6px solid var(--green); padding-left:12px}
+  ul{margin:0; padding-left:1.4em}
+  .roles{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+  .role{border-radius:12px; padding:16px 18px}
+  .role h3{margin:0 0 6px; font-size:18px}
+  .role.k{background:#f1f8f2} .role.k h3{color:var(--green-d)}
+  .role.g{background:#e3f2fd} .role.g h3{color:var(--blue)}
+  .role p{margin:0; font-size:15px}
+  footer{text-align:center; color:#52606d; font-size:14px; padding:0 16px 32px}
+  @media (max-width:600px){ .roles{grid-template-columns:1fr} header h1{font-size:34px} }
+</style>
+</head>
+<body>
+<header>
+  <h1>PKキッカー</h1>
+  <p>キッカーとキーパーを交互に。ゴールの数で勝負！</p>
+  <a class="btn" href="%E3%82%B2%E3%83%BC%E3%83%A0/pk-kicker2.html">今すぐ遊ぶ</a>
+</header>
+
+<main>
+  <section>
+    <h2>ゲーム紹介</h2>
+    <p>
+      PK戦をテーマにした、ブラウザで遊べる1人用ゲームです。
+      あなたはCPUを相手に、キッカー（蹴る側）とキーパー（守る側）を交互に務めます。
+      5回ずつ蹴って、多くゴールを決めた方の勝ち。同点ならサドンデスです。
+    </p>
+  </section>
+
+  <section>
+    <h2>遊び方</h2>
+    <div class="roles">
+      <div class="role k">
+        <h3>キッカーのとき</h3>
+        <p>右クリックで狙う場所を決めて、左クリックでキック。端を狙うほど枠を外しやすくなります。</p>
+      </div>
+      <div class="role g">
+        <h3>キーパーのとき</h3>
+        <p>右クリックで守る場所を決めて、左クリックでジャンプ。青い輪が手の届く範囲です。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>ルール</h2>
+    <ul>
+      <li>先行・後攻はランダムで決まります</li>
+      <li>5回ずつ蹴って、ゴール数が多い方が勝ち</li>
+      <li>同点の場合は、差がつくまでサドンデス</li>
+      <li>1回の制限時間は10秒（時間切れのキックは0点、守りでは動けずに撃たれます）</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>特長</h2>
+    <ul>
+      <li>HTML1ファイルだけで動作（インストール・外部ファイル不要）</li>
+      <li>ホイッスル、歓声、ブザーの効果音をブラウザ上で生成</li>
+      <li>得点表で先行・後攻や各回の○×が一目でわかる</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>動作環境</h2>
+    <p>PCのモダンブラウザ（Chrome / Edge / Firefox / Safari）。マウスの右クリックと左クリックを使うため、PCでの操作を想定しています。</p>
+  </section>
+</main>
+
+<footer>
+  <a href="%E3%82%B2%E3%83%BC%E3%83%A0/pk-kicker2.html">ゲームを開く</a>
+</footer>
+</body>
+</html>
