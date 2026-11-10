@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PKキッカー</title>
+<style>
+  :root{
+    --green:#2e7d32; --green-d:#1b5e20; --ink:#1f2933; --accent:#ffb300;
+    --good:#2e7d32; --bad:#c62828; --blue:#0277bd;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; background:#e8f1ea; color:var(--ink);
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    user-select:none; -webkit-user-select:none;
+  }
+  #app{width:100%; max-width:820px; padding:12px}
+  .hidden{display:none !important}
+
+  .card{
+    background:#fff; border-radius:16px; padding:32px 28px; text-align:center;
+    box-shadow:0 6px 24px rgba(0,0,0,.12);
+  }
+  h1{margin:0 0 6px; font-size:44px; color:var(--green-d); letter-spacing:.06em}
+  .sub{margin:0 0 20px; color:#52606d}
+  .rules{
+    display:inline-block; text-align:left; margin:0 0 24px; padding:14px 22px;
+    background:#f1f8f2; border-radius:12px; line-height:1.9; font-size:15px;
+  }
+  .rules b{color:var(--green-d)}
+  button.big{
+    font-size:22px; font-weight:bold; color:#fff; background:var(--green);
+    border:none; border-radius:999px; padding:14px 56px; cursor:pointer;
+    box-shadow:0 4px 0 var(--green-d); transition:transform .05s, box-shadow .05s;
+  }
+  button.big:hover{background:#388e3c}
+  button.big:active{transform:translateY(3px); box-shadow:0 1px 0 var(--green-d)}
+
+  #hud{
+    display:flex; justify-content:space-between; align-items:center; gap:8px;
+    margin-bottom:8px; font-weight:bold;
+  }
+  #hud .pill{background:#fff; border-radius:999px; padding:6px 16px; box-shadow:0 2px 6px rgba(0,0,0,.1)}
+  #roleLabel.kicker{background:var(--green); color:#fff}
+  #roleLabel.keeper{background:var(--blue); color:#fff}
+  #timer{min-width:110px; text-align:center; font-variant-numeric:tabular-nums}
+  #timer.warn{background:var(--bad); color:#fff}
+
+  table.board{
+    width:100%; border-collapse:collapse; background:#fff; border-radius:10px;
+    overflow:hidden; margin-bottom:8px; box-shadow:0 2px 6px rgba(0,0,0,.1);
+    text-align:center; font-size:15px;
+  }
+  table.board th{background:#37474f; color:#fff; padding:4px 0; font-weight:normal; font-size:13px}
+  table.board td{padding:5px 0; border-top:1px solid #e0e6e1; color:#9aa5b1}
+  table.board td.name{text-align:left; padding-left:12px; font-weight:bold; color:var(--ink); white-space:nowrap}
+  table.board td.name small{margin-left:6px; font-weight:normal; color:#7b8794; font-size:11px}
+  table.board td.o{color:var(--good); font-weight:bold}
+  table.board td.x{color:var(--bad); font-weight:bold}
+  table.board td.cur{background:#fff3c4}
+  table.board td.tot{font-weight:bold; font-size:18px; color:var(--ink); background:#f1f8f2}
+  table.board th.sd, table.board td.sd{border-left:2px dashed #b0bec5}
+
+  #stage{position:relative; line-height:0}
+  canvas{width:100%; height:auto; border-radius:12px; display:block; cursor:crosshair; box-shadow:0 4px 16px rgba(0,0,0,.18)}
+  #banner{
+    position:absolute; left:50%; top:46%; transform:translate(-50%,-50%) scale(.85);
+    text-align:center; pointer-events:none; opacity:0; transition:opacity .15s, transform .15s;
+    padding:16px 38px; border-radius:18px; color:#fff; line-height:1.3;
+    background:rgba(31,41,51,.88); min-width:260px;
+  }
+  #banner.show{opacity:1; transform:translate(-50%,-50%) scale(1)}
+  #banner .m{font-size:40px; font-weight:bold; letter-spacing:.04em}
+  #banner .s{font-size:16px; margin-top:6px; opacity:.95}
+  #banner.good{background:rgba(46,125,50,.93)}
+  #banner.bad{background:rgba(198,40,40,.92)}
+  #banner.info{background:rgba(2,119,189,.92)}
+  #hint{margin:8px 2px 0; font-size:14px; color:#3e4c59; text-align:center; min-height:1.5em}
+
+  #result h2{margin:0 0 4px; font-size:26px; color:#52606d}
+  #verdict{font-size:48px; font-weight:bold; margin:6px 0}
+  #verdict.win{color:var(--good)}
+  #verdict.lose{color:var(--bad)}
+  #finalScore{font-size:30px; font-weight:bold; margin-bottom:6px}
+  #resultNote{color:#52606d; margin-bottom:16px; min-height:1.4em}
+  #resultBoard{max-width:560px; margin:0 auto 22px}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ① スタート画面 -->
+  <section id="screen-start" class="card">
+    <h1>PKキッカー</h1>
+    <p class="sub">キッカーとキーパーを交互に。ゴールの数で勝負！</p>
+    <div class="rules">
+      <b>キッカーのとき</b>：右クリックで狙う場所を決めて、左クリックでキック<br>
+      <b>キーパーのとき</b>：右クリックで守る場所を決めて、左クリックでジャンプ<br>
+      <b>ルール</b>：5回ずつ蹴って多くゴールした方が勝ち（同点ならサドンデス）<br>
+      <b>制限時間</b>：1回につき10秒
+    </div>
+    <div><button class="big" id="btnStart">スタート</button></div>
+  </section>
+
+  <!-- ② プレイ画面 -->
+  <section id="screen-play" class="hidden">
+    <div id="hud">
+      <div class="pill" id="roundLabel">第1回 / 5</div>
+      <div class="pill" id="roleLabel">—</div>
+      <div class="pill" id="timer">—</div>
+    </div>
+    <div id="boardWrap"></div>
+    <div id="stage">
+      <canvas id="c" width="800" height="520"></canvas>
+      <div id="banner"><div class="m"></div><div class="s"></div></div>
+    </div>
+    <p id="hint"></p>
+  </section>
+
+  <!-- ③ 結果画面 -->
+  <section id="screen-result" class="card hidden">
+    <h2>結果</h2>
+    <div id="verdict"></div>
+    <div id="finalScore"></div>
+    <div id="resultNote"></div>
+    <div id="resultBoard"></div>
+    <button class="big" id="btnRetry">もう一度</button>
+  </section>
+
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ===== 定数 =====
+  const W = 800, H = 520;
+  const GOAL = { l: 180, r: 620, t: 110, b: 262 };
+  const GW = GOAL.r - GOAL.l, GH = GOAL.b - GOAL.t;
+  const HOME = { x: 400, y: 215 };          // キーパーの立ち位置（体の中心）
+  const REACH = { rx: 62, ry: 52 };         // キーパーの手の届く範囲
+  const BALL0 = { x: 400, y: 440 };         // ボールの初期位置（PKスポット）
+  const TIME_LIMIT = 10000;                 // 1回10秒
+  const T_LAUNCH = 150, T_FLIGHT = 550, T_ARRIVE = T_LAUNCH + T_FLIGHT;
+  const T_DIVE = 350, CPU_REACT = 250;
+  const RESULT_MS = 1700;
+  const NOISE_X = 16, NOISE_Y = 12;         // キック精度のブレ(px)
+
+  // ===== 要素 =====
+  const $ = id => document.getElementById(id);
+  const cv = $('c'), ctx = cv.getContext('2d');
+  const screens = { start: $('screen-start'), play: $('screen-play'), result: $('screen-result') };
+  const banner = $('banner');
+
+  // ===== 状態 =====
+  let state = 'start';   // start | intro | ready | aim | shot | result | end
+  let stateT = 0;
+  let game = null;
+  let cur = null;
+  let lastNow = 0;
+
+  // ===== ユーティリティ =====
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const easeOut = t => 1 - Math.pow(1 - t, 3);
+  const other = s => (s === 'you' ? 'cpu' : 'you');
+  function gz() { // 正規分布（±2.2σで打ち切り）
+    const u = 1 - Math.random(), v = Math.random();
+    return clamp(Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v), -2.2, 2.2);
+  }
+  function show(name) {
+    for (const k in screens) screens[k].classList.toggle('hidden', k !== name);
+  }
+  function setState(s, now) { state = s; stateT = now; }
+
+  function showBanner(main, sub, cls) {
+    banner.className = cls || '';
+    banner.querySelector('.m').textContent = main;
+    banner.querySelector('.s').textContent = sub || '';
+    void banner.offsetWidth;
+    banner.classList.add('show');
+  }
+  function hideBanner() { banner.classList.remove('show'); }
+
+  // ===== 効果音（Web Audioで生成。外部ファイルなし） =====
+  let ac = null;
+  function initAudio() { // ボタンクリック時に呼ぶ（ブラウザの自動再生制限のため）
+    try {
+      if (!ac) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) ac = new AC(); }
+      if (ac && ac.state === 'suspended') ac.resume();
+    } catch (e) { ac = null; }
+  }
+  function noiseBuffer(sec) {
+    const len = Math.floor(ac.sampleRate * sec);
+    const buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    return buf;
+  }
+  // ホイッスル：「ピーッ」（一音）
+  function whistle() {
+    if (!ac) return;
+    const t0 = ac.currentTime + 0.02;
+    const blow = (start, dur) => {
+      const osc = ac.createOscillator(); osc.type = 'sine'; osc.frequency.value = 2900;
+      const lfo = ac.createOscillator(); lfo.frequency.value = 38;       // 笛のふるえ
+      const lfoG = ac.createGain(); lfoG.gain.value = 180;
+      lfo.connect(lfoG); lfoG.connect(osc.frequency);
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.0001, start);
+      g.gain.exponentialRampToValueAtTime(0.28, start + 0.03);
+      g.gain.setValueAtTime(0.28, start + dur - 0.05);
+      g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+      const n = ac.createBufferSource(); n.buffer = noiseBuffer(dur + 0.1);  // 息の音
+      const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 3200; bp.Q.value = 2;
+      const ng = ac.createGain(); ng.gain.value = 0.12;
+      n.connect(bp); bp.connect(ng); ng.connect(g);
+      osc.connect(g); g.connect(ac.destination);
+      osc.start(start); lfo.start(start); n.start(start);
+      osc.stop(start + dur + 0.05); lfo.stop(start + dur + 0.05); n.stop(start + dur + 0.05);
+    };
+    blow(t0, 0.7);   // 「ピーッ」と一音だけ
+  }
+  // 歓声：帯域ノイズを重ねた観客のどよめき
+  function cheer(vol) {
+    if (!ac) return;
+    const t0 = ac.currentTime + 0.02, dur = 2.2, peak = 0.35 * vol;
+    const master = ac.createGain();
+    master.gain.setValueAtTime(0.0001, t0);
+    master.gain.exponentialRampToValueAtTime(peak, t0 + 0.25);
+    master.gain.setValueAtTime(peak, t0 + 0.9);
+    master.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    master.connect(ac.destination);
+    for (const [f, q, gv] of [[700, 0.7, 1.0], [1500, 0.9, 0.8], [2600, 1.0, 0.35]]) {
+      const n = ac.createBufferSource(); n.buffer = noiseBuffer(dur + 0.1);
+      const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = q;
+      const g = ac.createGain(); g.gain.value = gv;
+      const lfo = ac.createOscillator(); lfo.frequency.value = 5 + Math.random() * 3;  // 歓声のゆらぎ
+      const lg = ac.createGain(); lg.gain.value = gv * 0.35;
+      lfo.connect(lg); lg.connect(g.gain);
+      n.connect(bp); bp.connect(g); g.connect(master);
+      n.start(t0); lfo.start(t0); n.stop(t0 + dur + 0.05); lfo.stop(t0 + dur + 0.05);
+    }
+  }
+
+  // ブザー：「ブッ、ブーッ」（ゴールが入らなかったとき）
+  function buzzer() {
+    if (!ac) return;
+    const t0 = ac.currentTime + 0.02;
+    const buzz = (start, dur) => {
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.0001, start);
+      g.gain.exponentialRampToValueAtTime(0.3, start + 0.02);
+      g.gain.setValueAtTime(0.3, start + dur - 0.04);
+      g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+      const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1400;
+      lp.connect(g); g.connect(ac.destination);
+      for (const f of [110, 116]) {   // わずかにずらした2音で濁った音に
+        const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f;
+        o.connect(lp); o.start(start); o.stop(start + dur + 0.05);
+      }
+    };
+    buzz(t0, 0.28);
+    buzz(t0 + 0.36, 0.6);
+  }
+
+  // ===== ゲーム進行 =====
+  function kickerOf(turn) { return turn % 2 === 0 ? game.first : other(game.first); }
+
+  function startGame() {
+    initAudio();
+    game = {
+      first: Math.random() < 0.5 ? 'you' : 'cpu',
+      turn: 0, over: false,
+      marks: { you: [], cpu: [] },
+      score: { you: 0, cpu: 0 }
+    };
+    show('play');
+    prepareTurn();
+    const youFirst = game.first === 'you';
+    showBanner(youFirst ? 'あなたは先行' : 'あなたは後攻',
+               youFirst ? '先に蹴ります（最初はキッカー）' : '先に守ります（最初はキーパー）', 'info');
+    setState('intro', performance.now());
+  }
+
+  function prepareTurn() {
+    const kicker = kickerOf(game.turn);
+    cur = {
+      kicker,
+      role: kicker === 'you' ? 'kicker' : 'keeper',
+      aim: { x: 400, y: 185 },
+      dive: { x: HOME.x, y: HOME.y },
+      shot: null
+    };
+    updateHud();
+    renderBoard();
+  }
+
+  function roundText() {
+    const r = Math.floor(game.turn / 2) + 1;
+    return r <= 5 ? `第${r}回 / 5` : `サドンデス ${r - 5}回目`;
+  }
+
+  function updateHud() {
+    $('roundLabel').textContent = roundText();
+    const rl = $('roleLabel');
+    rl.className = 'pill ' + cur.role;
+    rl.textContent = cur.role === 'kicker' ? 'あなた：キッカー（蹴る）' : 'あなた：キーパー（守る）';
+    $('hint').textContent = cur.role === 'kicker'
+      ? '右クリックで狙う場所を決めて、左クリックでキック！（端を狙うほど枠を外しやすい）'
+      : '右クリックで飛ぶ位置を決めて、左クリックでジャンプ！（青い輪が手の届く範囲）';
+    setTimerText(null);
+  }
+
+  function setTimerText(remainMs) {
+    const t = $('timer');
+    if (remainMs == null) { t.textContent = '—'; t.classList.remove('warn'); return; }
+    t.textContent = `残り ${(Math.max(0, remainMs) / 1000).toFixed(1)}秒`;
+    t.classList.toggle('warn', remainMs <= 3000);
+  }
+
+  function boardHTML(final) {
+    const n = Math.max(5, game.marks.you.length, game.marks.cpu.length,
+                       final ? 0 : Math.floor(game.turn / 2) + 1);
+    let h = '<table class="board"><thead><tr><th></th>';
+    for (let i = 1; i <= n; i++) h += `<th class="${i > 5 ? 'sd' : ''}">${i}</th>`;
+    h += '<th>計</th></tr></thead><tbody>';
+    for (const side of ['you', 'cpu']) {
+      const label = side === 'you' ? 'あなた' : 'CPU';
+      const tag = game.first === side ? '先行' : '後攻';
+      h += `<tr><td class="name">${label}<small>${tag}</small></td>`;
+      for (let i = 0; i < n; i++) {
+        const m = game.marks[side][i];
+        const isCur = !final && !m && cur && cur.kicker === side && Math.floor(game.turn / 2) === i;
+        const cls = [m === 'o' ? 'o' : m === 'x' ? 'x' : '', isCur ? 'cur' : '', i >= 5 ? 'sd' : '']
+          .filter(Boolean).join(' ');
+        h += `<td class="${cls}">${m === 'o' ? '○' : m === 'x' ? '×' : '・'}</td>`;
+      }
+      h += `<td class="tot">${game.score[side]}</td></tr>`;
+    }
+    return h + '</tbody></table>';
+  }
+  function renderBoard() { $('boardWrap').innerHTML = boardHTML(false); }
+
+  function beginReady(now) {
+    const main = cur.role === 'kicker' ? 'あなたがキッカー' : 'あなたがキーパー';
+    showBanner(main, roundText(), 'info');
+    whistle();   // PK開始前のホイッスル
+    setState('ready', now);
+  }
+
+  // ===== キック開始・判定 =====
+  function clampAim(p) { return { x: clamp(p.x, 100, 700), y: clamp(p.y, 60, 300) }; }
+  function clampDive(p) { return { x: clamp(p.x, GOAL.l + 35, GOAL.r - 35), y: clamp(p.y, 145, 225) }; }
+
+  // CPUキーパーの動き：一部は読みが当たる、一部は完全ランダム、たまにその場でジャンプ
+  function cpuDive(shotPt) {
+    const r = Math.random();
+    let p;
+    if (r < 0.12) p = { x: HOME.x, y: HOME.y };
+    else if (r < 0.45) p = { x: shotPt.x + rand(-70, 70), y: shotPt.y + rand(-40, 40) };
+    else p = { x: rand(GOAL.l + 35, GOAL.r - 35), y: rand(145, 225) };
+    p = clampDive(p);
+    return { x: p.x, y: p.y, start: CPU_REACT };
+  }
+
+  function startShot(now, moved) {
+    const sh = { t0: now, result: null, kd: null };
+    cur.shot = sh;
+    if (cur.role === 'kicker') {
+      sh.sx = cur.aim.x + gz() * NOISE_X;
+      sh.sy = cur.aim.y + gz() * NOISE_Y;
+      sh.kd = cpuDive({ x: sh.sx, y: sh.sy });
+    } else {
+      const a = { x: rand(GOAL.l + 25, GOAL.r - 25), y: rand(GOAL.t + 20, GOAL.b - 20) };
+      sh.sx = a.x + gz() * NOISE_X;
+      sh.sy = a.y + gz() * NOISE_Y;
+      if (moved) sh.kd = { x: cur.dive.x, y: cur.dive.y, start: 0 };
+    }
+    setTimerText(null);
+    setState('shot', now);
+  }
+
+  function resolveShot(now) {
+    const sh = cur.shot;
+    const inGoal = sh.sx >= GOAL.l + 3 && sh.sx <= GOAL.r - 3 && sh.sy >= GOAL.t + 3 && sh.sy <= GOAL.b;
+    const k = sh.kd ? { x: sh.kd.x, y: sh.kd.y } : { x: HOME.x, y: HOME.y };
+    sh.k = k;
+    let res;
+    if (!inGoal) res = 'miss';
+    else {
+      const v = ((sh.sx - k.x) / REACH.rx) ** 2 + ((sh.sy - k.y) / REACH.ry) ** 2;
+      res = v <= 1 ? 'save' : 'goal';
+    }
+    finishTurn(res, now);
+  }
+
+  function finishTurn(res, now) {
+    if (cur.shot) cur.shot.result = res;
+    const kicker = cur.kicker;
+    game.marks[kicker].push(res === 'goal' ? 'o' : 'x');
+    if (res === 'goal') { game.score[kicker]++; cheer(kicker === 'you' ? 1 : 0.7); }  // ゴールで歓声
+    else buzzer();                         // 入らなかったらブブー
+    renderBoard();
+
+    const youKick = kicker === 'you';
+    let main, sub, cls;
+    if (res === 'goal') {
+      main = youKick ? 'GOAL!' : 'ゴールされた…';
+      sub = youKick ? 'あなたに1ポイント' : 'CPUに1ポイント';
+      cls = youKick ? 'good' : 'bad';
+    } else if (res === 'save') {
+      main = youKick ? 'セーブされた…' : 'ナイスセーブ！';
+      sub = '0ポイント';
+      cls = youKick ? 'bad' : 'good';
+    } else if (res === 'miss') {
+      main = youKick ? '枠外…' : 'CPUは枠外！';
+      sub = '0ポイント';
+      cls = youKick ? 'bad' : 'good';
+    } else { // timeout
+      main = '時間切れ…';
+      sub = '0ポイント';
+      cls = 'bad';
+    }
+    showBanner(main, sub, cls);
+    setTimerText(null);
+    setState('result', now);
+  }
+
+  function advance(now) {
+    hideBanner();
+    game.turn++;
+    if (game.turn % 2 === 0) {
+      const rounds = game.turn / 2;
+      if (rounds >= 5 && game.score.you !== game.score.cpu) { endGame(); return; }
+    }
+    prepareTurn();
+    beginReady(now);
+  }
+
+  function endGame() {
+    game.over = true;
+    state = 'end';
+    const y = game.score.you, c = game.score.cpu;
+    const win = y > c;
+    const v = $('verdict');
+    v.textContent = win ? 'あなたの勝ち！' : 'CPUの勝ち…';
+    v.className = win ? 'win' : 'lose';
+    $('finalScore').textContent = `あなた ${y} − ${c} CPU`;
+    const rounds = game.marks.you.length;
+    $('resultNote').textContent = rounds > 5 ? `サドンデス（${rounds}回目）で決着` : '5回ずつの勝負';
+    $('resultBoard').innerHTML = boardHTML(true);
+    show('result');
+  }
+
+  // ===== 入力 =====
+  function toCanvas(e) {
+    const r = cv.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height };
+  }
+  screens.play.addEventListener('contextmenu', e => e.preventDefault());
+  cv.addEventListener('mousedown', e => {
+    e.preventDefault();
+    if (state !== 'aim') return;
+    const p = toCanvas(e);
+    if (e.button === 2) {
+      if (cur.role === 'kicker') cur.aim = clampAim(p);
+      else { cur.dive = clampDive(p); cur.diveSet = true; }
+    } else if (e.button === 0) {
+      startShot(performance.now(), cur.role === 'kicker' ? true : true);
+    }
+  });
+  $('btnStart').addEventListener('click', startGame);
+  $('btnRetry').addEventListener('click', startGame);
+
+  // ===== 更新 =====
+  function update(now) {
+    if (lastNow && now - lastNow > 500) { // タブ非表示などで止まった分を補正
+      const gap = now - lastNow;
+      stateT += gap;
+      if (cur && cur.shot) cur.shot.t0 += gap;
+    }
+    lastNow = now;
+
+    switch (state) {
+      case 'intro':
+        if (now - stateT > 2200) { hideBanner(); beginReady(now); }
+        break;
+      case 'ready':
+        if (now - stateT > 900) { hideBanner(); setState('aim', now); }
+        break;
+      case 'aim': {
+        const remain = TIME_LIMIT - (now - stateT);
+        setTimerText(remain);
+        if (remain <= 0) {
+          if (cur.role === 'kicker') finishTurn('timeout', now);   // 蹴れず0点
+          else startShot(now, false);                              // 動けずに撃たれる
+        }
+        break;
+      }
+      case 'shot':
+        if (now - cur.shot.t0 >= T_ARRIVE && !cur.shot.result) resolveShot(now);
+        break;
+      case 'result':
+        if (now - stateT > RESULT_MS) advance(now);
+        break;
+    }
+  }
+
+  // ===== 描画 =====
+  function drawBackground() {
+    const g = ctx.createLinearGradient(0, 0, 0, 92);
+    g.addColorStop(0, '#dfe8ee'); g.addColorStop(1, '#b7c7d1');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, 92);
+    ctx.fillStyle = '#455a64'; ctx.fillRect(0, 78, W, 14);
+
+    const n = 10; let prev = 92;
+    for (let i = 1; i <= n; i++) {
+      const y = 92 + (H - 92) * Math.pow(i / n, 1.5);
+      ctx.fillStyle = i % 2 ? '#2f8f3a' : '#37a044';
+      ctx.fillRect(0, prev, W, y - prev + 1);
+      prev = y;
+    }
+    ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(0, GOAL.b); ctx.lineTo(W, GOAL.b); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(110, GOAL.b); ctx.lineTo(70, 330); ctx.lineTo(730, 330); ctx.lineTo(690, GOAL.b); ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.ellipse(BALL0.x, BALL0.y + 16, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
+  }
+
+  function drawNet() {
+    ctx.fillStyle = 'rgba(15,40,30,.45)';
+    ctx.fillRect(GOAL.l, GOAL.t, GW, GH);
+    ctx.strokeStyle = 'rgba(255,255,255,.3)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = GOAL.l; x <= GOAL.r; x += 20) { ctx.moveTo(x, GOAL.t); ctx.lineTo(x, GOAL.b); }
+    for (let y = GOAL.t; y <= GOAL.b; y += 20) { ctx.moveTo(GOAL.l, y); ctx.lineTo(GOAL.r, y); }
+    ctx.stroke();
+  }
+
+  function drawPosts() {
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 8; ctx.lineJoin = 'miter'; ctx.lineCap = 'butt';
+    ctx.beginPath();
+    ctx.moveTo(GOAL.l, GOAL.b); ctx.lineTo(GOAL.l, GOAL.t);
+    ctx.lineTo(GOAL.r, GOAL.t); ctx.lineTo(GOAL.r, GOAL.b);
+    ctx.stroke();
+  }
+
+  function keeperPose(now) {
+    let x = HOME.x, y = HOME.y, ang = 0, d = 0;
+    const sh = cur && cur.shot;
+    if (sh && sh.kd) {
+      const t = now - sh.t0 - sh.kd.start;
+      d = clamp(t / T_DIVE, 0, 1);
+      const e = easeOut(d);
+      x = lerp(HOME.x, sh.kd.x, e);
+      y = lerp(HOME.y, sh.kd.y, e) - Math.sin(Math.PI * d) * 14;
+      ang = clamp((sh.kd.x - HOME.x) / (GW / 2 - 35), -1, 1) * 1.15 * e;
+    } else if (!sh) {
+      x += Math.sin(now / 350) * 4;
+    }
+    return { x, y, ang, d };
+  }
+
+  function drawKeeper(p) {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.ang);
+    ctx.lineCap = 'round';
+    for (const s of [-1, 1]) {   // 脚
+      ctx.strokeStyle = '#ffd8a8'; ctx.lineWidth = 7;
+      ctx.beginPath(); ctx.moveTo(s * 7, 20); ctx.lineTo(s * lerp(9, 14, p.d), 46); ctx.stroke();
+    }
+    ctx.fillStyle = '#ff9800'; ctx.fillRect(-14, -20, 28, 32);   // 上着
+    ctx.fillStyle = '#263238'; ctx.fillRect(-14, 10, 28, 11);    // パンツ
+    for (const s of [-1, 1]) {   // 腕とグローブ
+      const ex = s * lerp(30, 24, p.d), ey = lerp(8, -42, p.d);
+      ctx.strokeStyle = '#ff9800'; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.moveTo(s * 13, -14); ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.strokeStyle = '#37474f'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(ex, ey, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#ffd8a8';   // 頭
+    ctx.beginPath(); ctx.arc(0, -31, 10, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  function ballState(now) {
+    const sh = cur && cur.shot;
+    if (!sh) return { x: BALL0.x, y: BALL0.y, r: 18, rot: 0, sy: BALL0.y };
+    const t = now - sh.t0;
+    if (t < T_LAUNCH) return { x: BALL0.x, y: BALL0.y, r: 18, rot: 0, sy: BALL0.y };
+    const p = Math.min(1, (t - T_LAUNCH) / T_FLIGHT);
+    if (p < 1) {
+      const gy = lerp(BALL0.y, sh.sy, p);
+      return { x: lerp(BALL0.x, sh.sx, p), y: gy - 46 * 4 * p * (1 - p), r: lerp(18, 9, p), rot: p * 12, sy: gy };
+    }
+    const u = easeOut(clamp((t - T_ARRIVE) / 500, 0, 1));
+    let end = { x: sh.sx, y: sh.sy, r: 9 };
+    if (sh.result === 'goal') end = { x: sh.sx, y: Math.min(GOAL.b - 6, sh.sy + 16), r: 8 };
+    else if (sh.result === 'save') {
+      const dir = sh.sx >= sh.k.x ? 1 : -1;
+      end = { x: sh.sx + dir * 70, y: Math.min(GOAL.b + 20, sh.sy + 50), r: 11 };
+    } else if (sh.result === 'miss') {
+      end = { x: sh.sx + (sh.sx - BALL0.x) * 0.25, y: sh.sy + (sh.sy - BALL0.y) * 0.25, r: 7 };
+    }
+    return { x: lerp(sh.sx, end.x, u), y: lerp(sh.sy, end.y, u), r: lerp(9, end.r, u), rot: 12 + u * 4, sy: lerp(sh.sy, end.y, u) };
+  }
+
+  function drawBall(b) {
+    ctx.fillStyle = 'rgba(0,0,0,.25)';
+    ctx.beginPath(); ctx.ellipse(b.x, b.sy + b.r * 0.9, b.r * 0.95, b.r * 0.35, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = '#222'; ctx.lineWidth = Math.max(1, b.r * 0.1);
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#222';
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 0.3, 0, Math.PI * 2); ctx.fill();
+    for (let i = 0; i < 5; i++) {
+      const a = b.rot + i * Math.PI * 2 / 5;
+      ctx.beginPath(); ctx.arc(b.x + Math.cos(a) * b.r * 0.7, b.y + Math.sin(a) * b.r * 0.7, b.r * 0.2, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  function drawMarker() {
+    if (!cur || (state !== 'aim' && state !== 'ready')) return;
+    if (cur.role === 'kicker') {
+      const a = cur.aim;
+      ctx.strokeStyle = 'rgba(255,235,59,.75)'; ctx.lineWidth = 2; ctx.setLineDash([6, 5]);
+      ctx.beginPath(); ctx.arc(a.x, a.y, 28, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      ctx.strokeStyle = '#ffeb3b'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(a.x, a.y, 11, 0, Math.PI * 2);
+      ctx.moveTo(a.x - 20, a.y); ctx.lineTo(a.x + 20, a.y);
+      ctx.moveTo(a.x, a.y - 20); ctx.lineTo(a.x, a.y + 20); ctx.stroke();
+    } else {
+      const d = cur.dive;
+      ctx.strokeStyle = '#4fc3f7'; ctx.lineWidth = 3; ctx.setLineDash([8, 6]);
+      ctx.beginPath(); ctx.ellipse(d.x, d.y, REACH.rx, REACH.ry, 0, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = '#4fc3f7';
+      ctx.beginPath(); ctx.arc(d.x, d.y, 5, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  function draw(now) {
+    if (state === 'start' || state === 'end' || !cur) return;
+    ctx.clearRect(0, 0, W, H);
+    drawBackground();
+    drawNet();
+    drawPosts();
+    drawKeeper(keeperPose(now));
+    drawMarker();
+    drawBall(ballState(now));
+  }
+
+  function loop(now) {
+    update(now);
+    draw(now);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
